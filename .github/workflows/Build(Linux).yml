@@ -20,7 +20,7 @@ jobs:
           dotnet-version: '9.x'
 
       - name: Restore dependencies
-        run: dotnet restore ./CastleRealm.sln
+        run: dotnet restore ./SwagMatch.sln
 
       - name: Build solution
-        run: dotnet build ./CastleRealm.sln --configuration Release --no-restore
+        run: dotnet build ./SwagMatch.sln --configuration Release --no-restore
