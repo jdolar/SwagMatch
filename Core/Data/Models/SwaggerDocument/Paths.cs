@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
-namespace SwagMatch.Core.Models.Swagger;
+
+namespace SwagMatch.Core.Data.Models.SwaggerDocument;
 public sealed class PathItem
 {
     public Operation? Get { get; set; }

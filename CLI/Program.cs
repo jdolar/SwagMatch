@@ -1,7 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using CLI;
+using SwagMatch.CLI;
+using SwagMatch.Core.Macher;
 
 IHost host = Configure.AppHost(args);
-Core.SwagMatch swagger = host.Services.GetRequiredService<Core.SwagMatch>();
+SwaggerMach swagger = host.Services.GetRequiredService<SwaggerMach>();
 (string path, int bytesWritten) = await swagger.CompareAsync();

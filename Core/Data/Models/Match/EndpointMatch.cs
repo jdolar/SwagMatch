@@ -1,4 +1,4 @@
-﻿namespace Core.Models;
+﻿namespace SwagMatch.Core.Data.Models.Match;
 public sealed class EndpointMatch
 {
     public Endpoint? A { get; set; }

@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Text.Json.Serialization;
-namespace SwagMatch.Core.Models.Swagger;
+﻿using System.Text.Json.Serialization;
+
+namespace SwagMatch.Core.Data.Models.SwaggerDocument;
 public sealed class Components
 {
     [JsonPropertyName("schemas")]

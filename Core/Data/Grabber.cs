@@ -1,17 +1,20 @@
-﻿using Core.Client;
-using Core.IO;
-using Core.Models;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using SwagMatch.Core.Models.Swagger;
-using SwagMatch.Core.Models.UserInput;
-using System.Text.Json;
-namespace SwagMatch.Core.Domain;
-public sealed class SwagGet(ILogger logger, IRestClient client, string path)
+using SwagMatch.Core.IO;
+using SwagMatch.Core.Client;
+using SwagMatch.Core.Tools.MockGenerator;
+using SwagMatch.Core.Tools.HealthCheck;
+using SwagMatch.Core.Data.Models.Match;
+using SwagMatch.Core.Data.Models.SwaggerDocument;
+using SwagMatch.Core.Data.Models.UserInput;
+
+namespace SwagMatch.Core.Data;
+public sealed class Grabber(ILogger logger, IRestClient client, string path)
 {
-    private readonly SwagCheck _swagCheck = new(logger);
+    private readonly SwaggerHealth _swagCheck = new(logger);
     private readonly JsonFile _jsonFile = new(logger, path);
-    private readonly SwagMap _swagMap = new(logger);
-    private readonly SwagGen _swagGen = new(logger);
+    private readonly Mapper _swagMap = new(logger);
+    private readonly SwaggerGenerator _swagGen = new(logger);
     public async Task<(List<List<Endpoint>>, List<string>)> GatherInfo(List<UserInputPath> swagDefinitions)
     {
         List<List<Endpoint>> swagEndpoints = new();

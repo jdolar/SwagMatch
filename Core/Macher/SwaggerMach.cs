@@ -1,15 +1,17 @@
-﻿using Core.Client;
-using Core.IO;
-using Core.Models;
+﻿using System.Diagnostics;
 using F23.StringSimilarity;
 using Microsoft.Extensions.Logging;
-using SwagMatch.Core.Models.UserInput;
-using System.Diagnostics;
-using Endpoint = Core.Models.Endpoint;
-namespace SwagMatch.Core.Domain;
-public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, AppSettings config)
+using SwagMatch.Core.IO;
+using SwagMatch.Core.Client;
+using Endpoint = SwagMatch.Core.Data.Models.Match.Endpoint;
+using SwagMatch.Core.Data;
+using SwagMatch.Core.Data.Models.Match;
+using SwagMatch.Core.Data.Models.UserInput;
+
+namespace SwagMatch.Core.Macher;
+public sealed class SwaggerMach(IRestClient client, ILogger<SwaggerMach> logger, AppSettings config)
 {
-    private readonly SwagGet _swagGet = new(logger, client, config.Path);
+    private readonly Grabber _swagGet = new(logger, client, config.Path);
     public async Task<(string, int)> CompareAsync()
     {
         logger.LogDebug("[CompareAsync] Configuration:{0}", config.ToString());
@@ -20,7 +22,7 @@ public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, App
             return (string.Empty, 0);
         }
 
-        string resultsFileName = $"{nameof(SwagMatch)}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
+        string resultsFileName = $"{nameof(SwaggerMach)}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
 
         Stopwatch stopwatch = new();
         stopwatch.Start();

@@ -1,6 +1,6 @@
-﻿using SwagMatch.Core.Models.Swagger;
+﻿using SwagMatch.Core.Data.Models.SwaggerDocument;
 
-namespace Core.Models;
+namespace SwagMatch.Core.Data.Models.Match;
 public sealed class Endpoint
 {  
     public string Path { get; set; } = string.Empty;

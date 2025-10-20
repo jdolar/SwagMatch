@@ -1,8 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
-using Core.Models;
-using System.Text;
-using SwagMatch.Core.Models.UserInput;
-namespace Core.IO;
+﻿using System.Text;
+using Microsoft.Extensions.Logging;
+using SwagMatch.Core.Data.Models.Match;
+using SwagMatch.Core.Data.Models.UserInput;
+
+namespace SwagMatch.Core.IO;
 public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, filePath)
 {
     public string GenerateContent(List<EndpointMatch>? matched, List<EndpointMatch>? matched2and3Only, List<EndpointMatch>? notMatched, List<string> swaggersName, Report config)
@@ -142,7 +143,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                     sb.AppendLine("|");
                 }
 
-                List<string> rowColumns = new();
+                List<string> rowColumns = [];
                 foreach (var ep in endpointValues)
                 {
                     if (ep == null)

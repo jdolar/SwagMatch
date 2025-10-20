@@ -1,4 +1,4 @@
-﻿namespace SwagMatch.Core.Models.UserInput;
+﻿namespace SwagMatch.Core.Data.Models.UserInput;
 public sealed class Report
 {
     public bool GenerateVerticalLayout { get; set; } = false;
