@@ -1,4 +1,4 @@
-﻿namespace Core.Client;
+﻿namespace SwagMatch.Core.Client;
 public interface IRestClient
 {
     Task<TResponse?> Get<TResponse>(string uri, CancellationToken cancellationToken = default);

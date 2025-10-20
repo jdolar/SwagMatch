@@ -1,7 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Text;
-using SwagMatch.Core.Models.Swagger;
-namespace Core.IO;
+﻿using System.Text;
+using Microsoft.Extensions.Logging;
+using SwagMatch.Core.Data.Models.SwaggerDocument;
+
+namespace SwagMatch.Core.IO;
 public class BaseFile(ILogger? logger, string filePath)
 {
     #region Protected Methods
@@ -33,7 +34,7 @@ public class BaseFile(ILogger? logger, string filePath)
         {
             using FileStream fileStream = new(file, FileMode.Create, FileAccess.Write);
             byte[] bytes = Encoding.UTF8.GetBytes(content);
-            await fileStream.WriteAsync(bytes, 0, bytes.Length);
+            await fileStream.WriteAsync(bytes);
             return bytes.Length;
         }
         catch (Exception ex)
@@ -54,7 +55,7 @@ public class BaseFile(ILogger? logger, string filePath)
         input = input.Replace("\"", "\"\""); // Escape quotes
         return $"\"{input.Trim()}\"";
     }
-    protected string Escape(string? input)
+    protected static string Escape(string? input)
     {
         return string.IsNullOrWhiteSpace(input)
             ? "-"

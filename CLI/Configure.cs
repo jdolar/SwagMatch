@@ -1,10 +1,12 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Core.Client;
-using SwagMatch.Core.Models.UserInput;
-namespace CLI;
+using SwagMatch.Core.Client;
+using SwagMatch.Core.Data.Models.UserInput;
+using SwagMatch.Core.Macher;
+
+namespace SwagMatch.CLI;
 public sealed class Configure
 {
     public static IHost AppHost(string[] args)
@@ -45,7 +47,7 @@ public sealed class Configure
                        });
             
                        // Add Compare service
-                       services.AddSingleton<Core.SwagMatch>();
+                       services.AddSingleton<SwaggerMach>();
                    })
             
                    .Build();

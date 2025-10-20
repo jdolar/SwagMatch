@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
-using System;
-namespace Core.Client;
+
+namespace SwagMatch.Core.Client;
 public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger) : IRestClient
 {
     private Utils _utils = new(logger);

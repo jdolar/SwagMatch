@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
-using SwagMatch.Core.Models.Swagger;
-using System.IO;
-namespace SwagMatch.Core.Domain;
-public sealed class SwagCheck(ILogger logger)
+using SwagMatch.Core.Data.Models.SwaggerDocument;
+
+namespace SwagMatch.Core.Tools.HealthCheck;
+public sealed class SwaggerHealth(ILogger logger)
 {
     public bool IsHealthy(Document? swagDocument)
     {

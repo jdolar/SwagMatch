@@ -1,10 +1,11 @@
-﻿using Core.Client;
-using Core.Models;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using SwagMatch.Core.Models.Swagger;
-using System.Text.Json;
-namespace SwagMatch.Core.Domain;
-public sealed class SwagMap(ILogger logger)
+using SwagMatch.Core.Data.Models.Match;
+using SwagMatch.Core.Data.Models.SwaggerDocument;
+using SwagMatch.Core.Tools.MockGenerator;
+
+namespace SwagMatch.Core.Data;
+public sealed class Mapper(ILogger logger)
 {
     public (string, Operation)? MapOperation(PathItem pathItem)
     {
@@ -89,7 +90,7 @@ public sealed class SwagMap(ILogger logger)
             return null;
 
         MediaType? mediaType = null;     
-        string? contentType = MockConstants.MediaTypes!.FirstOrDefault(ct => reqBody.Content!.TryGetValue(ct, out mediaType));
+        string? contentType = Constants.MediaTypes!.FirstOrDefault(ct => reqBody.Content!.TryGetValue(ct, out mediaType));
         if (contentType is null || mediaType is null)
             return null;
 

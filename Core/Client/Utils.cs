@@ -1,7 +1,8 @@
-﻿using System.Text.Json;
-using System.Text;
+﻿using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
-namespace Core.Client;
+
+namespace SwagMatch.Core.Client;
 public sealed class Utils
 {
     private readonly Encoding _encoding = Encoding.UTF8;

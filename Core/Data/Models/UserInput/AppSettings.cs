@@ -1,4 +1,4 @@
-﻿namespace SwagMatch.Core.Models.UserInput;
+﻿namespace SwagMatch.Core.Data.Models.UserInput;
 public sealed class AppSettings
 {
     public int ApiTimeout { get; set; } = 500;

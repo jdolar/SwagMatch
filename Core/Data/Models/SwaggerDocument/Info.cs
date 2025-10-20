@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace SwagMatch.Core.Models.Swagger;
+namespace SwagMatch.Core.Data.Models.SwaggerDocument;
 public sealed class Info
 {
     [JsonPropertyName("title")]

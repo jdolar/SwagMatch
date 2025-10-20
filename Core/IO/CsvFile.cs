@@ -1,8 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
-using Core.Models;
-using System.Text;
-using SwagMatch.Core.Models.UserInput;
-namespace Core.IO;
+﻿using System.Text;
+using Microsoft.Extensions.Logging;
+using SwagMatch.Core.Data.Models.Match;
+using SwagMatch.Core.Data.Models.UserInput;
+
+namespace SwagMatch.Core.IO;
 public sealed class CsvFile(ILogger logger, string filePath) : BaseFile(logger, filePath)
 {
     private readonly ILogger _logger = logger;

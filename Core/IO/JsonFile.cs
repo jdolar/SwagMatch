@@ -1,7 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Text.Json;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
-namespace Core.IO;
+
+namespace SwagMatch.Core.IO;
 public sealed class JsonFile(ILogger logger, string filePath) : BaseFile(logger, filePath)
 {
     public JsonSerializerOptions SerelizerOptions = new()
