@@ -45,7 +45,7 @@ public sealed class Configure
                        });
             
                        // Add Compare service
-                       services.AddSingleton<Core.SwagMatch>();
+                       services.AddSingleton<SwagMatch.Core.Domain.SwagMatch>();
                    })
             
                    .Build();

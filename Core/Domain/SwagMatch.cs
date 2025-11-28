@@ -219,4 +219,10 @@ public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, App
     {
         return input.Trim().ToLowerInvariant().Replace("_", "").Replace("-", "");
     }
+    public async Task<int> FindInfo()
+    {
+        (List<List<Endpoint>> swaggers, List<string> swaggersName) = await _swagGet.GatherInfo(config.SwaggerDefinitions!);
+
+        return 0;
+    }
 }
