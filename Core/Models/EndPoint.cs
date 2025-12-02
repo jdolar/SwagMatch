@@ -11,6 +11,7 @@ public sealed class Endpoint
     public string? Title { get; set; } = null;
     public string? Tags { get; set; } = string.Empty;
     public bool? BodyRequired { get; set; } = false;
+    public Dictionary<int,List<Parameter>>? Responses { get; set; } = new();
     public List<Parameter>? Parameters { get; set; } = new();
     public List<Parameter>? RequestBody { get; set; } = new();
     public override string ToString()
@@ -18,7 +19,7 @@ public sealed class Endpoint
         return string.Format(
             "0: Path = {0}, 1: Method = {1}, 2: Name = {2}, 3: MachParameter = {3}, " +
             "4: Operation = {4}, 5: Title = {5}, 6: Tags = {6}, " +
-            "7: Parameters.Count = {7}, 8: RequestBody.Count = {8}",
+            "7: Parameters.Count = {7}, 8: RequestBody.Count = {8}, 9: Responses.Count = {9}",
             Path,
             Method,
             Name,
@@ -27,7 +28,8 @@ public sealed class Endpoint
             Title,
             Tags,
             Parameters?.Count ?? 0,
-            RequestBody?.Count ?? 0
+            RequestBody?.Count ?? 0,
+            Responses?.Count ?? 0
         );
     }
 }

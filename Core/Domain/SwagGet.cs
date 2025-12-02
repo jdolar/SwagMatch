@@ -6,54 +6,57 @@ using SwagMatch.Core.Models.Swagger;
 using SwagMatch.Core.Models.UserInput;
 using System.Text.Json;
 namespace SwagMatch.Core.Domain;
+
 public sealed class SwagGet(ILogger logger, IRestClient client, string path)
 {
     private readonly SwagCheck _swagCheck = new(logger);
     private readonly JsonFile _jsonFile = new(logger, path);
     private readonly SwagMap _swagMap = new(logger);
     private readonly SwagGen _swagGen = new(logger);
-    public async Task<(List<List<Endpoint>>, List<string>)> GatherInfo(List<UserInputPath> swagDefinitions)
+
+    public async Task<(List<Endpoint>?, string?, bool)> GetEndpoints(string path, MockConfig genConfig)
+    {
+        (Document? Value, string? Name) swagDoc = await GetSwaggerDocument(path, genConfig);
+        return (_swagMap.MapDocument(swagDoc.Value), swagDoc.Name, _swagCheck.IsHealthy(swagDoc.Value));
+    }
+    public async Task<(List<List<Endpoint>>, List<string>)> GetSwaggers(List<string> swagDefinitions, MockConfig genConfig)
     {
         List<List<Endpoint>> swagEndpoints = new();
         List<string> healthyEndpoints = new();
 
-        foreach (UserInputPath swagDefinition in swagDefinitions)
+        foreach (string swagDefinition in swagDefinitions)
         {
-            (string? Value, string? Name) json = await GetJson(swagDefinition.Path, swagDefinition.GenerateMock);
-            Document? swagDoc = DeserializeSwagger(json.Value);
-            if (swagDoc is null) continue;
+            (List<Endpoint>? EndPoints, string? Name, bool IsHealthy) swagger = await GetEndpoints(swagDefinition, genConfig);
+            if (swagger.EndPoints is null || !swagger.IsHealthy) continue;
 
-            bool isHealthy = _swagCheck.IsHealthy(swagDoc);
-            if (!isHealthy) continue;
-
-            List<Endpoint>? swagPaths = _swagMap.MapDocument(swagDoc);
-            if (swagPaths is null) continue;
-
-            swagEndpoints.Add(swagPaths);
-            healthyEndpoints.Add(json.Name ?? "unknown");
+            swagEndpoints.Add(swagger.EndPoints);
+            healthyEndpoints.Add(swagger.Name ?? "unknown");
         }
 
         return (swagEndpoints, healthyEndpoints);
     }
-    private async Task<(string? value, string? name)> GetJson(string swaggerPath, bool generateMock)
+    private async Task<(Document?, string?)> GetSwaggerDocument(string url, MockConfig genConfig)
+    {
+        (string? Value, string? Name) json = await GetJson(url, genConfig);
+        return (DeserializeSwagger(json.Value), json.Name);
+    }
+    private async Task<(string? value, string? name)> GetJson(string swaggerPath, MockConfig genConfig)
     {
         Uri? url = client.GetUrl(swaggerPath);
 
-        if (generateMock)
+        if (genConfig.IsEnabled)
         {
-            string path;
-            if (url is null)
+            string path = url is null ? _jsonFile.GetPath(swaggerPath) : client.GetUrlName(url);
+            logger.LogInformation("[GetJson] Generating Mocked[Type={0}] Swagger: {1}.", genConfig.Type, path);
+
+            Dictionary<string, PathItem>? paths = new();
+            switch (genConfig.Type)
             {
-                path = _jsonFile.GetPath(swaggerPath);
-            }
-            else
-            {
-                path = client.GetUrlName(url);
+                case 0: paths = _swagGen.GeneratePaths(genConfig); break;
+                case 1: paths = _swagGen.CreateEndPointPairs(); break;
             }
 
-            logger.LogInformation("[GetJson] Generating Mocked swagger: {0}.", path);
-
-            Document? swagger = _swagGen.GenerateSwagger();
+            Document? swagger = _swagGen.CreateSwagger(paths);
             return (SerializeSwagger(swagger), path);
         }
         else

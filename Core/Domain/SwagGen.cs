@@ -1,14 +1,20 @@
 ﻿using Microsoft.Extensions.Logging;
 using SwagMatch.Core.Models.Swagger;
+using SwagMatch.Core.Models.UserInput;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Xml.Linq;
+using System.Xml.XPath;
 namespace SwagMatch.Core.Domain;
+
 public static class MockConstants
 {
-    public static List<string> MediaTypes = new() { "application/json", "application/xml", "text/plain" };
+    public static List<string> ContentTypes = new() { "application/json", "application/xml", "text/plain" };
     public static readonly string[] httpMethods = new[] { "Get", "Post", "Put", "Delete", "Patch", "Head", "Options", "Trace" };
     public static readonly string[] DataTypes = new[] { "string", "integer", "boolean", "array", "object", "number" };
     public static readonly string[] properties = new[] { "name", "description", "boolean", "array", "object", "number" };
-    public static readonly List<string> PathApplications = new List<string>
+    public static readonly List<string> PathApplications = new()
     {
         "MockStream",
         "SwaggerSim",
@@ -31,7 +37,7 @@ public static class MockConstants
         "FakeRoute",
         "MockPath"
     };
-    public static readonly List<string> Names = new List<string>
+    public static readonly List<string> Names = new()
     {
         "GetUser",
         "CreateUser",
@@ -54,7 +60,7 @@ public static class MockConstants
         "ProcessPayment",
         "ValidateCoupon"
     };
-    public static readonly Dictionary<int, string> httpStatusDescriptions = new Dictionary<int, string>()
+    public static readonly Dictionary<int, string> httpStatusDescriptions = new()
     {
         { 100, "Continue: This interim response indicates that the client should continue the request or ignore the response if the request is already finished." },
         { 101, "Switching Protocols: This code is sent in response to an Upgrade request header from the client and indicates the protocol the server is switching to." },
@@ -106,27 +112,37 @@ public static class MockConstants
         { 429, "Too Many Requests: The user has sent too many requests in a given amount of time (rate limiting)." },
         { 431, "Request Header Fields Too Large: The server is unwilling to process the request because its header fields are too large. The request may be resubmitted after reducing the size of the request header fields." }
     };
-}
-public sealed class GenSwaggConfig
-{
-    public int AppCnt { get; set; } = 5;
-    public int PathPerAppCnt { get; set; } = 10;
-    public int OppPerPathPerAppCnt { get; set; } = 1;
-    public int ReqBodyOrParamCnt { get; set; } = 6;
+    public static readonly string[][] MockUrlAdresses = new string[][]
+        {
+            new[] { "https://zorvix.net/method2/alpha", "https://blunaro.io/method2/alpha" },
+            new[] { "https://quantavo.dev/method2/ping", "https://trellica.org/method2/ping" },
+            new[] { "https://vortexa.app/method2/spark", "https://zorvix.net/method2/spark" },
+            new[] { "https://neurobyte.io/method2/trace", "https://cybrex.ai/method2/trace" },
+            new[] { "https://frozian.com/method2/echo", "https://hexalab.dev/method2/echo" },
+            new[] { "https://lunaris.org/method2/core", "https://zennova.net/method2/core" },
+            new[] { "https://velociti.app/method2/prime", "https://astrava.io/method2/prime" },
+            new[] { "https://montek.dev/method2/fuse", "https://orbial.net/method2/fuse" },
+            new[] { "https://kyronix.io/method2/quantum", "https://dataflux.app/method2/quantum" },
+            new[] { "https://synthara.net/method2/bolt", "https://aerovex.org/method2/bolt" },
+            new[] { "https://trakion.dev/method2/scan", "https://lumera.io/method2/scan" },
+            new[] { "https://nexura.app/method2/rift", "https://hypernode.dev/method2/rift" },
+            new[] { "https://orbistack.com/method2/loop", "https://dynaris.io/method2/loop" },
+            new[] { "https://glacion.org/method2/field", "https://silvaris.net/method2/field" },
+            new[] { "https://voltaro.dev/method2/ion", "https://radiantlabs.io/method2/ion" }
+        };
 }
 public sealed class SwagGen(ILogger logger)
 {
     private readonly SwagMap _swagMap = new(logger);
     private readonly Random _random = new();
-    public Document? GenerateSwagger(GenSwaggConfig? genConf = null)
+    public Document CreateSwagger(Dictionary<string, PathItem> paths)
     {
-        Dictionary<string, PathItem> paths = GeneratePaths(genConf ??= new());
-
-        Document? swagDoc = new Document()
+        Dictionary<string, Schema> schemas = GenerateSchemas(paths);
+        Document swagDoc = new Document()
         {
             Components = new Components()
             {
-                Schemas = GenerateSchemas(paths)
+                Schemas = schemas
             },
             Paths = paths,
             Info = new Info()
@@ -136,10 +152,193 @@ public sealed class SwagGen(ILogger logger)
             },
             OpenApi = "3.0.0"
         };
-
         return swagDoc;
     }
+    public (string, PathItem) CreatePath(string name, string type, string method, string path, string inText, string operationId, bool required, string contentType)
+    {
+        PathItem pathItem = new();
+        var responses = GenerateResponses();
+
+        Parameter parameter = new()
+        {
+            Type = type,
+            Name = name,
+            In = inText,
+            Required = required,
+            Schema = JsonDocument.Parse("{ \"type\": \"" + type + "\" }").RootElement
+        };
+
+        RequestBody requestBody = new()
+        {
+            Content = new Dictionary<string, MediaType>
+            {
+                [contentType] = new MediaType
+                {
+                    Example = JsonDocument.Parse("{ \"id\": 1, \"name\": \"Sample\", \"description\": \"This is a sample.\", \"tags\": [\"tag1\", \"tag2\"] }").RootElement,
+                    Schema = JsonDocument.Parse("{ \"$ref\": \"#/components/schemas/" + operationId + "\" }").RootElement
+                }
+            },
+            Required = true
+        };
+
+        pathItem = method.ToLower() switch
+        {
+            "get" => CreateGetPath(operationId, name, new List<Parameter> { parameter }, responses),
+            "post" => CreatePostPath(operationId, name, new List<Parameter> { parameter }, requestBody, responses),
+            "put" => CreatePutPath(operationId, name, new List<Parameter> { parameter }, requestBody, responses),
+            "delete" => CreateDeletePath(operationId, name, new List<Parameter> { parameter }, responses),
+            "patch" => CreatePatchPath(operationId, name, new List<Parameter> { parameter }, requestBody, responses),
+            "head" => CreateHeadPath(operationId, name, new List<Parameter> { parameter }, requestBody, responses),
+            "options" => CreateOptionsPath(operationId, name, new List<Parameter> { parameter }, requestBody, responses),
+            "trace" => CreateTracePath(operationId, name, new List<Parameter> { parameter }, requestBody, responses),
+            _ => pathItem
+        };
+
+
+        return (path, pathItem);
+    }
+    public Dictionary<string, PathItem> GeneratePaths(MockConfig genConf)
+    {
+        Dictionary<string, PathItem> paths = new();
+        for (int i = 0; i < genConf!.AppCnt; i++)
+        {
+            string appName = MockConstants.PathApplications[_random.Next(MockConstants.PathApplications.Count)];
+            for (int j = 0; j < genConf?.PathPerAppCnt; j++)
+            {
+                for (int k = 0; k < genConf?.OppPerPathPerAppCnt; k++)
+                {
+                    string name = $"{MockConstants.Names[_random.Next(MockConstants.Names.Count)]}_{i + 1}{j + 1}{k + 1}";
+                    string method = $"{MockConstants.httpMethods[_random.Next(MockConstants.httpMethods.Length)]}";
+                    string path = $"/{appName}/{name}";
+                    string operationId = $"{name}_{j}{k}";
+                    string contentType = MockConstants.ContentTypes[_random.Next(MockConstants.ContentTypes.Count)];
+
+                    PathItem pathItem = new();
+                    var parameters = GenerateParameters(genConf.ReqBodyOrParamCnt, operationId, "query", contentType);
+                    var requestBody = GenerateRequestBody(operationId, contentType);
+                    var responses = GenerateResponses();
+
+                    switch (method)
+                    {
+                        case "Get": pathItem = CreateGetPath(operationId, name, parameters, responses); break;
+                        case "Post": pathItem = CreatePostPath(operationId, name, parameters, requestBody, responses); break;
+                        case "Put": pathItem = CreatePutPath(operationId, name, parameters, requestBody, responses); break;
+                        case "Delete": pathItem = CreateDeletePath(operationId, name, parameters, responses); break;
+                        case "Patch": pathItem = CreatePatchPath(operationId, name, parameters, requestBody, responses); break;
+                        case "Head": pathItem = CreateHeadPath(operationId, name, parameters, requestBody, responses); break;
+                        case "Options": pathItem = CreateOptionsPath(operationId, name, parameters, requestBody, responses); break;
+                        case "Trace": pathItem = CreateTracePath(operationId, name, parameters, requestBody, responses); break;
+                    }
+
+                    paths.Add(path, pathItem);
+                }
+            }
+        }
+        return paths;
+    }   
+    public Dictionary<string, PathItem> CreateEndPointPairs(string[][]? urlPaths = null)
+    {
+        Dictionary<string, PathItem>? paths = new();
+
+        urlPaths??= MockConstants.MockUrlAdresses;
+        foreach (var addressPair in urlPaths)
+        {
+            string name = $"{MockConstants.Names[new Random().Next(MockConstants.Names.Count)]}_{new Random().Next(1000, 9999)}";
+            (string Path, PathItem Value) addressKey = CreatePath(
+                name,
+                MockConstants.DataTypes[new Random().Next(MockConstants.DataTypes.Length)],
+                MockConstants.httpMethods[new Random().Next(MockConstants.httpMethods.Length)],
+                addressPair[0],
+                "query",
+                $"op{name}A_{new Random().Next()}",
+                true,
+                MockConstants.ContentTypes[new Random().Next(MockConstants.ContentTypes.Count)]
+            );
+            paths.Add(addressKey.Path, addressKey.Value);
+
+            (string Path, PathItem Value) addressValue = CreatePath(
+                name,
+                MockConstants.DataTypes[new Random().Next(MockConstants.DataTypes.Length)],
+                MockConstants.httpMethods[new Random().Next(MockConstants.httpMethods.Length)],
+                addressPair[1],
+                "query",
+                $"op{name}B_{new Random().Next()}",
+                true,
+                MockConstants.ContentTypes[new Random().Next(MockConstants.ContentTypes.Count)]
+            );
+            paths.Add(addressValue.Path, addressValue.Value);
+        }
+
+        return paths;
+    }
+    private Response GenerateResponse(int statusCode)
+    {
+        string description = MockConstants.httpStatusDescriptions.ContainsKey(statusCode) ?
+            MockConstants.httpStatusDescriptions[statusCode] :
+            "No description available";
+        return new Response
+        {
+            Description = description,
+            Content = new Dictionary<string, MediaType>
+            {
+                ["application/json"] = new MediaType
+                {
+                    Schema = JsonDocument.Parse("{ \"type\": \"object\" }").RootElement
+                }
+            }
+        };
+    }
+    private Dictionary<int, Response> GenerateResponses()
+    {
+        Dictionary<int, Response> responses = new()
+        {
+            [200] = GenerateResponse(200),
+            [201] = GenerateResponse(201),
+            [204] = GenerateResponse(204),
+            [400] = GenerateResponse(400),
+        };
+        return responses;
+    }
     private string GenerateType() => MockConstants.DataTypes[_random.Next(MockConstants.DataTypes.Length)];
+    private RequestBody GenerateRequestBody(string operationId, string contentType)
+    {
+        Schema schemaRef = new()
+        {
+            Ref = $"#/components/schemas/{operationId}"
+        };
+
+        string json = JsonSerializer.Serialize(schemaRef);
+        JsonElement jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        return new RequestBody
+        {
+            Content = new Dictionary<string, MediaType>
+            {
+                [contentType] = new MediaType
+                {
+                    Example = JsonDocument.Parse("{ \"id\": 1, \"name\": \"Sample\", \"description\": \"This is a sample.\", \"tags\": [\"tag1\", \"tag2\"] }").RootElement,
+                    Schema = JsonSerializer.Deserialize<JsonElement>(json)
+                }
+            },
+            Required = true
+        };
+    }
+    private PathItem CreateGetPath(string operationId, string name, List<Parameter>? parameters, Dictionary<int, Response> responses)
+        => new PathItem() { Get = CreateOperation(operationId, "Get", name, null, parameters, responses) };
+    private PathItem CreatePostPath(string operationId, string name, List<Parameter>? parameters, RequestBody? requestBody, Dictionary<int, Response> responses)
+        => new PathItem() { Post = CreateOperation(operationId, "Post", name, requestBody, parameters, responses) };
+    private PathItem CreatePutPath(string operationId, string name, List<Parameter>? parameters, RequestBody? requestBody, Dictionary<int, Response> responses)
+        => new PathItem() { Put = CreateOperation(operationId, "Put", name, requestBody, parameters, responses) };
+    private PathItem CreateDeletePath(string operationId, string name, List<Parameter>? parameters, Dictionary<int, Response> responses)
+        => new PathItem() { Delete = CreateOperation(operationId, "Delete", name, null, parameters, responses) };
+    private PathItem CreatePatchPath(string operationId, string name, List<Parameter>? parameters, RequestBody? requestBody, Dictionary<int, Response> responses)
+        => new PathItem() { Patch = CreateOperation(operationId, "Patch", name, requestBody, parameters, responses) };
+    private PathItem CreateHeadPath(string operationId, string name, List<Parameter>? parameters, RequestBody? requestBody, Dictionary<int, Response> responses)
+        => new PathItem() { Head = CreateOperation(operationId, "Head", name, requestBody, parameters, responses) };
+    private PathItem CreateOptionsPath(string operationId, string name, List<Parameter>? parameters, RequestBody? requestBody, Dictionary<int, Response> responses)
+        => new PathItem() { Options = CreateOperation(operationId, "Options", name, requestBody, parameters, responses) };
+    private PathItem CreateTracePath(string operationId, string name, List<Parameter>? parameters, RequestBody? requestBody, Dictionary<int, Response> responses)
+        => new PathItem() { Trace = CreateOperation(operationId, "Trace", name, requestBody, parameters, responses) };
     private Dictionary<string, Schema> GenerateSchemas(Dictionary<string, PathItem> paths)
     {
         Dictionary<string, Schema> schemas = new();
@@ -191,115 +390,19 @@ public sealed class SwagGen(ILogger logger)
         }
         return schemas;
     }
-    private RequestBody GenerateRequestBody(string operationId, string contentType)
+    private Operation CreateOperation(string operationId, string method, string name, RequestBody? requestBody, List<Parameter>? parameters, Dictionary<int, Response>? responses)
     {
-        Schema schemaRef = new()
-        {
-            Ref = $"#/components/schemas/{operationId}"
-        };
-
-        string json = JsonSerializer.Serialize(schemaRef);
-        JsonElement jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
-
-        return new RequestBody
-        {
-            Content = new Dictionary<string, MediaType>
-            {
-                [contentType] = new MediaType
-                {
-                    Example = JsonDocument.Parse("{ \"id\": 1, \"name\": \"Sample\", \"description\": \"This is a sample.\", \"tags\": [\"tag1\", \"tag2\"] }").RootElement,
-                    Schema = JsonSerializer.Deserialize<JsonElement>(json)
-                }
-            },
-            Required = true
-        };
-    }
-    private Dictionary<string, PathItem> GeneratePaths(GenSwaggConfig genConf)
-    {
-        Dictionary<string, PathItem> paths = new();
-        for (int i = 0; i < genConf!.AppCnt; i++)
-        {
-            string appName = MockConstants.PathApplications[_random.Next(MockConstants.PathApplications.Count)];
-            for (int j = 0; j < genConf?.PathPerAppCnt; j++)
-            {
-                for (int k = 0; k < genConf?.OppPerPathPerAppCnt; k++)
-                {
-                    PathItem pathItem = new();
-
-                    string name = $"{MockConstants.Names[_random.Next(MockConstants.Names.Count)]}_{i + 1}{j + 1}{k + 1}";
-                    string path = $"/{appName}/{name}";
-                    string method = MockConstants.httpMethods[_random.Next(MockConstants.httpMethods.Length)];
-
-                    Operation opp = GenerateOperation($"{name}_{j}{k}", method, name, genConf.ReqBodyOrParamCnt);
-                    switch (method)
-                    {
-                        case "Get": pathItem.Get = opp; break;
-                        case "Post": pathItem.Post = opp; break;
-                        case "Put": pathItem.Put = opp; break;
-                        case "Delete": pathItem.Delete = opp; break;
-                        case "Patch": pathItem.Patch = opp; break;
-                        case "Head": pathItem.Head = opp; break;
-                        case "Options": pathItem.Options = opp; break;
-                        case "Trace": pathItem.Trace = opp; break;
-                    }
-
-                    paths.Add(path, pathItem);
-                }
-            }
-        }
-        return paths;
-    }
-    private Response GenerateResponse(int statusCode)
-    {
-        string description = MockConstants.httpStatusDescriptions.ContainsKey(statusCode) ?
-            MockConstants.httpStatusDescriptions[statusCode] :
-            "No description available";
-        return new Response
-        {
-            Description = description,
-            Content = new Dictionary<string, MediaType>
-            {
-                ["application/json"] = new MediaType
-                {
-                    Schema = JsonDocument.Parse("{ \"type\": \"object\" }").RootElement
-                }
-            }
-        };
-    }
-    private Dictionary<int, Response> GenerateResponses()
-    {
-        Dictionary<int, Response> responses = new()
-        {
-            [200] = GenerateResponse(200),
-            [201] = GenerateResponse(201),
-            [204] = GenerateResponse(204),
-            [400] = GenerateResponse(400),
-        };
-        return responses;
-    }
-    private Operation GenerateOperation(string operationId, string method, string name, int reqBodyParamCnt)
-    {
-        string contentType = MockConstants.MediaTypes[_random.Next(MockConstants.MediaTypes.Count)];
-        Operation operation = new()
+        return new()
         {
             OperationId = operationId,
             Tags = new List<string> { "default" },
             Name = name,
             Title = $"{method} {name}",
-            Summary = $"This is the {method} operation for {name}",
-            Responses = GenerateResponses()
+            Summary = $"[Operation] This is the {method} for {name}",
+            Responses = responses,
+            Parameters = parameters,
+            RequestBody = requestBody,
         };
-
-        if (method.ToLower() == "get" || method.ToLower() == "delete")
-        {
-            operation.Parameters = GenerateParameters(reqBodyParamCnt, operationId, "query", contentType);
-        }
-        else
-        {
-            operation.RequestBody = GenerateRequestBody(operationId, contentType);
-        }
-
-        return operation;
     }
     private List<Parameter>? GenerateParameters(int paramCount, string operationId, string inValue, string contentType)
     {

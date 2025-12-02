@@ -2,38 +2,62 @@
 using Core.IO;
 using Core.Models;
 using F23.StringSimilarity;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.Extensions.Logging;
 using SwagMatch.Core.Models.UserInput;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Net.Sockets;
 using Endpoint = Core.Models.Endpoint;
 namespace SwagMatch.Core.Domain;
+
 public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, AppSettings config)
 {
     private readonly SwagGet _swagGet = new(logger, client, config.Path);
-    public async Task<(string, int)> CompareAsync()
+    public async Task<(int, string)> CompareSwaggers()
     {
+        Stopwatch stopwatch = new();
         logger.LogDebug("[CompareAsync] Configuration:{0}", config.ToString());
 
-        if (config.SwaggerDefinitions is null || config.SwaggerDefinitions.Count < 2 || config.SwaggerDefinitions.Count > 3)
+        if (config.CompareSwaggerUrls is null || config.CompareSwaggerUrls.Count < 2 || config.CompareSwaggerUrls?.Count > 3)
         {
-            logger.LogError("[CompareAsync] Comparison is supported for 2 or 3 Swagger instances only. Actual count: {0}", config.SwaggerDefinitions?.Count ?? 0);
-            return (string.Empty, 0);
+            logger.LogError("[CompareAsync] Comparison is supported for 2 or 3 Swagger instances only. Actual count: {0}", config.CompareSwaggerUrls?.Count ?? 0);
+            return (0, string.Empty);
         }
 
-        string resultsFileName = $"{nameof(SwagMatch)}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
-
-        Stopwatch stopwatch = new();
         stopwatch.Start();
-       
-        var results = await GatherInfo();
+        
+        var results = await MatchEndpoints();
+        (int totalBytes, string fileName) = await SaveResults(nameof(CompareSwaggers), results.SwaggersName, results.Matched!, results.Matched2and3Only!, results.NotMatched!);
+        
+        stopwatch.Stop();
 
+        logger.LogDebug("[CompareAsync] Swagger comparison completed in {0} ms.", stopwatch.ElapsedMilliseconds);
+
+        if (!config.AutoClose) Console.ReadLine();
+
+        return (totalBytes, fileName);
+    }
+    public async Task<(int, string)> CompareEndpoints()
+    {
+        (List<Endpoint>? EndPoints, string? Name, bool IsHealthy) swagger = await _swagGet.GetEndpoints(config.SwaggerPath, config.MockConfig);
+        if (swagger.EndPoints is null || !swagger.IsHealthy) return (0,string.Empty);
+
+        (List<string> Names, List<EndpointMatch> Matched, List<EndpointMatch> NotMatched) endpoints = CompareTwoEndpoints(swagger.EndPoints, config.CompareEndPointUrls!);
+        (int totalBytes, string fileName) = await SaveResults(nameof(CompareEndpoints), endpoints.Names, endpoints.Matched, null, endpoints.NotMatched);
+
+        return (totalBytes, fileName);
+    }
+    async Task<(int,string)>  SaveResults(string invoker, List<string> swaggerNames, List<EndpointMatch> matched, List<EndpointMatch>? matched2And3Only, List<EndpointMatch> notMatched)
+    {
+        string resultsFileName = $"{invoker}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
         int mdContentBytesCount = 0;
         string? mdContent = null;
         if (config.Report.GenerateMd)
         {
             // Save results to MD file
             MdFile mdFile = new(logger, config.Path);
-            mdContent = mdFile.GenerateContent(results.Matched, results.Matched2and3Only, results.NotMatched, results.SwaggersName, config.Report);
+            mdContent = mdFile.GenerateContent(matched, matched2And3Only, notMatched, swaggerNames, config.Report);
             mdContentBytesCount = await mdFile.WriteAsync(resultsFileName, mdContent);
         }
 
@@ -43,25 +67,38 @@ public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, App
         {
             // Save results to Csv file
             CsvFile csvFile = new(logger, config.Path);
-            csvContent = csvFile.GenerateContent(results.Matched, results.Matched2and3Only, results.NotMatched, results.SwaggersName, config.Report);
+            csvContent = csvFile.GenerateContent(matched, matched2And3Only, notMatched, swaggerNames, config.Report);
             csvContentBytesCount = await csvFile.WriteAsync(resultsFileName, csvContent);
         }
 
-        stopwatch.Stop();
-
         int totalByes = mdContentBytesCount + csvContentBytesCount;
-        logger.LogInformation("[CompareAsync] Swagger comparison completed in {0} ms. File(s) saved as: {1}\n - {2}(bytes) MD\n - {3}(bytes) CSV\n - {4}(bytes) Total)",
-                stopwatch.ElapsedMilliseconds,
+        logger.LogInformation("[{0}] Swagger comparison completed. File(s) saved as: {1}\n - {2}(bytes) MD\n - {3}(bytes) CSV\n - {4}(bytes) Total)",
+                invoker,
                 resultsFileName,
                 mdContentBytesCount,
                 csvContentBytesCount,
                 totalByes);
 
-        if (!config.AutoClose) Console.ReadLine();
-
-        return (resultsFileName, totalByes);
+        return (totalByes, resultsFileName);
     }
-    private (List<EndpointMatch>? Matched, List<EndpointMatch>? Matched2and3Only, List<EndpointMatch>? NotMatched) MatchEndpointsV2(List<List<Endpoint>> swaggers, double threshold = 0.8)
+    private (List<string>,List<EndpointMatch>,List<EndpointMatch>) CompareTwoEndpoints(List<Endpoint> endPoints,List<string[]> adresses)
+    {
+        List<EndpointMatch> mached = new();
+        List<string> names = new();
+        foreach (var adress in adresses)
+        {
+            EndpointMatch match = new();
+            match.A = endPoints.FirstOrDefault(e => e.Path.Equals(adress[0], StringComparison.OrdinalIgnoreCase));
+            match.B = endPoints.FirstOrDefault(e => e.Path.Equals(adress[1], StringComparison.OrdinalIgnoreCase));
+            
+            names.AddRange(new List<string> { match.A?.Name ?? "unkA", match.B?.Name ?? "unkB"});
+            
+            if (match != null) mached.Add(match);
+        }
+
+        return (names, mached, new List<EndpointMatch>());
+    }
+    private (List<EndpointMatch>? Matched, List<EndpointMatch>? Matched2and3Only, List<EndpointMatch>? NotMatched) CompareSwaggers(List<List<Endpoint>> swaggers, double threshold = 0.8)
     {
         if (swaggers.Count < 2 || swaggers.Count > 3)
         {
@@ -208,10 +245,10 @@ public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, App
         logger.LogDebug("Swagger endopoits found:\n - Matched: {0}\n - Matched2And3: {1}\n - NotMatched: {2}", matched?.Count ?? 0, matched2and3Only?.Count ?? 0, notMatched?.Count ?? 0);
         return (matched, matched2and3Only, notMatched);
     }
-    private async Task<(List<string> SwaggersName, List<EndpointMatch>? Matched, List<EndpointMatch>? Matched2and3Only, List<EndpointMatch>? NotMatched)> GatherInfo()
+    private async Task<(List<string> SwaggersName, List<EndpointMatch>? Matched, List<EndpointMatch>? Matched2and3Only, List<EndpointMatch>? NotMatched)> MatchEndpoints()
     {
-        (List<List<Endpoint>> swaggers, List<string> swaggersName) = await _swagGet.GatherInfo(config.SwaggerDefinitions!);
-        (List<EndpointMatch>? matched, List<EndpointMatch>? matched2and3Only, List<EndpointMatch>? notMatched) = MatchEndpointsV2(swaggers);
+        (List<List<Endpoint>> swaggers, List<string> swaggersName) = await _swagGet.GetSwaggers(config.CompareSwaggerUrls!, config.MockConfig);
+        (List<EndpointMatch>? matched, List<EndpointMatch>? matched2and3Only, List<EndpointMatch>? notMatched) = CompareSwaggers(swaggers);
 
         return (swaggersName, matched, matched2and3Only, notMatched);
     }
@@ -219,10 +256,5 @@ public sealed class SwagMatch(IRestClient client, ILogger<SwagMatch> logger, App
     {
         return input.Trim().ToLowerInvariant().Replace("_", "").Replace("-", "");
     }
-    public async Task<int> FindInfo()
-    {
-        (List<List<Endpoint>> swaggers, List<string> swaggersName) = await _swagGet.GatherInfo(config.SwaggerDefinitions!);
 
-        return 0;
-    }
 }

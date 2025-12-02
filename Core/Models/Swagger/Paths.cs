@@ -73,13 +73,18 @@ public sealed class Parameter
 {
     public string? Type { get; set; }
     public string? Name { get; set; }
+    public string? Ref { get; set; }
     public string? In { get; set; } // query, path, header, cookie
     public bool Required { get; set; }
+    public string? Description { get; set; }
+    public string? Format { get; set; }
     public JsonElement Schema { get; set; }
+    public string? Schema1 { get; set; }
 }
 public sealed class RequestBody
 {
     public Dictionary<string, MediaType>? Content { get; set; }
+    public string? Description { get; set; }
     public bool Required { get; set; }
 }
 public sealed class Response

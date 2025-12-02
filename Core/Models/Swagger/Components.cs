@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 namespace SwagMatch.Core.Models.Swagger;
 public sealed class Components
 {
@@ -85,4 +84,12 @@ public sealed class SwaggerProperty
 
     [JsonPropertyName("additionalProperties")]
     public object? AdditionalProperties { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+    [JsonPropertyName("$ref")]
+    public string? Ref { get; set; }
+
+    [JsonPropertyName("schema")]
+    public string? Schema { get; set; }
 }

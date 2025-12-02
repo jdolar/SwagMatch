@@ -2,6 +2,7 @@
 using Core.Models;
 using System.Text;
 using SwagMatch.Core.Models.UserInput;
+using SwagMatch.Core.Models.Swagger;
 namespace Core.IO;
 public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, filePath)
 {
@@ -21,14 +22,15 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
 
         return ret.ToString();
     }
+
     public string GenerateSimplifiedMarkdown(
-    List<EndpointMatch>? matches,
-    List<string> swaggersName,
-    bool includeName,
-    bool includeMisc,
-    bool layoutVertical = false,
-    string? groupTitle = null,
-    int groupIndex = 1)
+        List<EndpointMatch>? matches,
+        List<string> swaggersName,
+        bool includeName,
+        bool includeMisc,
+        bool layoutVertical = false,
+        string? groupTitle = null,
+        int groupIndex = 1)
     {
         if (matches == null || matches.Count == 0)
             return string.Empty;
@@ -36,9 +38,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
         StringBuilder sb = new();
 
         if (!string.IsNullOrWhiteSpace(groupTitle))
-        {
             sb.AppendLine($"## {groupTitle}\n");
-        }
 
         int matchIndex = 1;
 
@@ -55,20 +55,22 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
 
             string matchName = endpointValues.FirstOrDefault(e => e != null)?.Name ?? "Unnamed";
 
+            // ------------------------------
+            //      VERTICAL TABLE LAYOUT
+            // ------------------------------
             if (layoutVertical)
             {
                 sb.AppendLine($"### Match {groupIndex}.{matchIndex++}: `{matchName}`\n");
 
-                // Header
                 sb.Append("| Source | Path");
                 if (includeName) sb.Append(" | Name");
-                sb.Append(" | Method | Parameters | Request Body");
+                sb.Append(" | Method | Parameters | Request Body | Responses");
                 if (includeMisc) sb.Append(" | Misc");
                 sb.AppendLine(" |");
 
                 sb.Append("|--------|------");
                 if (includeName) sb.Append("|------");
-                sb.Append("|--------|------------|--------------");
+                sb.Append("|--------|------------|--------------|-----------");
                 if (includeMisc) sb.Append("|------");
                 sb.AppendLine("|");
 
@@ -81,7 +83,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                     {
                         var empty = new List<string> { sourceName, "-" };
                         if (includeName) empty.Add("-");
-                        empty.AddRange(["-", "-", "-"]);
+                        empty.AddRange(["-", "-", "-", "-"]);
                         if (includeMisc) empty.Add("-");
                         sb.AppendLine("| " + string.Join(" | ", empty) + " |");
                     }
@@ -89,6 +91,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                     {
                         string parameters = FormatParameters(ep.Parameters, true);
                         string requestBody = FormatRequestBody(ep.RequestBody, true);
+                        string responses = FormatResponses(ep.Responses);
                         string miscParts = "";
 
                         if (includeMisc)
@@ -110,33 +113,38 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                         cells.Add(Escape(ep.Method));
                         cells.Add(parameters);
                         cells.Add(requestBody);
+                        cells.Add(responses);
                         if (includeMisc) cells.Add(Escape(miscParts.Trim()));
 
                         sb.AppendLine("| " + string.Join(" | ", cells) + " |");
                     }
                 }
 
-                sb.AppendLine(); // space between match blocks
+                sb.AppendLine();
             }
+            // ------------------------------
+            //      HORIZONTAL LAYOUT
+            // ------------------------------
             else
             {
-                // Horizontal layout - one table for all rows
-                if (matchIndex == 1 && !layoutVertical)
+                if (matchIndex == 1)
                 {
+                    // Header
                     foreach (var name in swaggersName)
                     {
                         sb.Append($"| {name}");
                         if (includeName) sb.Append(" | Name");
-                        sb.Append(" | Method | Parameters | Request Body");
+                        sb.Append(" | Method | Parameters | Request Body | Responses");
                         if (includeMisc) sb.Append(" | Misc");
                     }
                     sb.AppendLine("|");
 
+                    // Separator
                     foreach (var _ in swaggersName)
                     {
                         sb.Append("|------------------");
                         if (includeName) sb.Append("|------");
-                        sb.Append("|--------|------------|--------------");
+                        sb.Append("|--------|------------|--------------|-----------");
                         if (includeMisc) sb.Append("|------");
                     }
                     sb.AppendLine("|");
@@ -149,7 +157,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                     {
                         var emptyCells = new List<string> { "-" };
                         if (includeName) emptyCells.Add("-");
-                        emptyCells.AddRange(["-", "-", "-"]);
+                        emptyCells.AddRange(["-", "-", "-", "-"]);
                         if (includeMisc) emptyCells.Add("-");
                         rowColumns.Add(string.Join(" | ", emptyCells));
                     }
@@ -157,8 +165,9 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                     {
                         string parameters = FormatParameters(ep.Parameters, true);
                         string requestBody = FormatRequestBody(ep.RequestBody, true);
-                        string miscParts = "";
+                        string responses = FormatResponses(ep.Responses);
 
+                        string miscParts = "";
                         if (includeMisc)
                         {
                             if (!string.IsNullOrWhiteSpace(ep.Operation))
@@ -174,6 +183,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                         values.Add(Escape(ep.Method));
                         values.Add(parameters);
                         values.Add(requestBody);
+                        values.Add(responses);
                         if (includeMisc) values.Add(Escape(miscParts.Trim()));
 
                         rowColumns.Add(string.Join(" | ", values));
@@ -184,7 +194,7 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
                 {
                     var emptyCells = new List<string> { "-" };
                     if (includeName) emptyCells.Add("-");
-                    emptyCells.AddRange(["-", "-", "-"]);
+                    emptyCells.AddRange(["-", "-", "-", "-"]);
                     if (includeMisc) emptyCells.Add("-");
                     rowColumns.Add(string.Join(" | ", emptyCells));
                 }
@@ -196,8 +206,41 @@ public sealed class MdFile(ILogger logger, string filePath) : BaseFile(logger, f
 
         return sb.ToString();
     }
+
+    // ------------------------------------------
+    // RESPONSE FORMATTER
+    // ------------------------------------------
+    private string FormatResponses(Dictionary<int, List<Parameter>>? responses)
+    {
+        if (responses == null || responses.Count == 0)
+            return "-";
+
+        var parts = new List<string>();
+
+        foreach (var kv in responses.OrderBy(k => k.Key))
+        {
+            int status = kv.Key;
+            var list = kv.Value;
+
+            if (list == null || list.Count == 0)
+            {
+                parts.Add($"**{status}**: -");
+                continue;
+            }
+
+            var formatted = list.Select(p =>
+                $"{Escape(p.Name)}: {Escape(p.Type)}{(p.Required ? " (required)" : "")}");
+
+            parts.Add($"**{status}**: {string.Join(", ", formatted)}");
+        }
+
+        // Use <br> to force proper multiline rendering in Markdown tables
+        return string.Join("<br>", parts);
+    }
+
     public async Task<int> WriteAsync(string fileName, string? content)
     {
         return await base.WriteAsync(fileName, "md", content);
     }
+
 }
